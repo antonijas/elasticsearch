@@ -42,6 +42,18 @@ public class DocumentMigrator implements ApplicationRunner {
   @Value("${wallet_index}")
   private String wallet_index;
 
+  @Value("${userStaging}")
+  private String userStaging;
+
+  @Value("${passStaging}")
+  private String passStaging;
+
+  @Value("${hostStaging}")
+  private String hostStaging;
+
+  @Value("${portStaging}")
+  private int portStaging;
+
   Logger logger = LoggerFactory.getLogger(DocumentMigrator.class);
   private TransactionsByWalletRepo transactionsByWalletRepo;
   private RestHighLevelClient client;
@@ -92,10 +104,10 @@ public class DocumentMigrator implements ApplicationRunner {
   private void readFromStaging() throws IOException {
     final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
     credentialsProvider.setCredentials(AuthScope.ANY,
-        new UsernamePasswordCredentials("elastic", "elastic"));
+        new UsernamePasswordCredentials(userStaging, passStaging));
 
     RestClientBuilder b = RestClient.builder(new HttpHost(
-            "k8s-stage-d0bc8c7a9d-stage.es.us-west-2.aws.found.io", 9243, "https"))
+            hostStaging, portStaging, "https"))
         .setHttpClientConfigCallback(new HttpClientConfigCallback() {
           @Override
           public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
