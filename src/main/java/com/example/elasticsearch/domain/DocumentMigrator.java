@@ -1,20 +1,33 @@
 package com.example.elasticsearch.domain;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.PreDestroy;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.CreateIndexResponse;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.index.reindex.ReindexRequest;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,13 +62,21 @@ public class DocumentMigrator implements ApplicationRunner {
     }
     createIndex();
     copyDocumentToNewIndex(doc.get());
+    readFromStaging();
   }
 
-  public void copyDocumentToNewIndex(WalletInfo doc) {
-    // pročitat s prvog indexa, namapirat, preselit na drugi index
-    // TODO: implement....
+  public void copyDocumentToNewIndex(WalletInfo doc) throws IOException {
+    ObjectMapper objectMapper = new ObjectMapper();
+    String val = objectMapper.writeValueAsString(doc);
+    IndexRequest r = new IndexRequest(wallet_index);
+    r.type("_doc");
+    r.id(doc.getId());
+    r.source(val, XContentType.JSON);
+    IndexResponse resp = client.index(r, RequestOptions.DEFAULT);
+    logger.info("doc moved to new index {}", resp);
 
   }
+
 
   public void createIndex() throws IOException {
     CreateIndexRequest request = new CreateIndexRequest(wallet_index);
@@ -63,15 +84,38 @@ public class DocumentMigrator implements ApplicationRunner {
         .put("index.number_of_shards", 3)
         .put("index.number_of_replicas", 2)
     );
-
     CreateIndexResponse indexResponse = client.indices().create(request, RequestOptions.DEFAULT);
     logger.info("index created: {}", indexResponse.index());
 
   }
 
+  private void readFromStaging() throws IOException {
+    final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+    credentialsProvider.setCredentials(AuthScope.ANY,
+        new UsernamePasswordCredentials("elastic", "elastic"));
+
+    RestClientBuilder b = RestClient.builder(new HttpHost(
+            "k8s-stage-d0bc8c7a9d-stage.es.us-west-2.aws.found.io", 9243, "https"))
+        .setHttpClientConfigCallback(new HttpClientConfigCallback() {
+          @Override
+          public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
+            return httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+          }
+        });
+
+    RestHighLevelClient client = new RestHighLevelClient(b);
+
+    GetRequest req = new GetRequest("com.coinme.projections.transactions_by_wallet",
+        "_doc",
+        "774930573352767488|BITGO|TBTC|DEPOSIT");
+    GetResponse response = client.get(req, RequestOptions.DEFAULT);
+    logger.info("reading from staging.... {}", response.getSource());
+
+  }
+
   @PreDestroy
   private void deleteIndex() throws IOException {
-    // TODO: this fails if I don't recreate client here....
+    // TODO: fails if client is not recreated here
     RestHighLevelClient client = new RestHighLevelClient(RestClient.builder(new HttpHost("localhost", 9200, "http")));
     DeleteIndexRequest deleteRequest = new DeleteIndexRequest(wallet_index);
     Boolean response = client.indices().delete(deleteRequest, RequestOptions.DEFAULT).isAcknowledged();
@@ -79,7 +123,7 @@ public class DocumentMigrator implements ApplicationRunner {
 
   }
 
-  private void saveWalletInfo() {
+  private void saveWalletInfo() throws ParseException {
     Map<String, Object> walletInfo1 = new HashMap<>();
     walletInfo1.put("fees", "0.00000000");
     walletInfo1.put("amount", "0.03198000");

@@ -6,7 +6,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-@Document(indexName = "transactions_by_wallet", type = "walletinfo")
+@Document(indexName = "transactions_by_wallet", type = "_doc")
 public class WalletInfo {
 
   @Id
