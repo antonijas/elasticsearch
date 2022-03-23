@@ -9,9 +9,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.elasticsearch.action.index.IndexRequest;
+import org.apache.http.HttpHost;
 import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.client.indices.CreateIndexResponse;
+import org.elasticsearch.common.settings.Settings;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,8 +24,6 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.elasticsearch.client.ClientConfiguration;
-import org.springframework.data.elasticsearch.client.RestClients;
 
 @SpringBootApplication
 public class ElasticsearchApplication implements ApplicationRunner {
@@ -37,16 +39,26 @@ public class ElasticsearchApplication implements ApplicationRunner {
 
   Logger logger = LoggerFactory.getLogger(ElasticsearchApplication.class);
   private TransactionsByWalletRepo transactionsByWalletRepo;
-  private static final String WALLET_INDEX = "walletinfo_copy";
+  // TODO: create if not exist
+  private static final String WALLET_INDEX = "walletinfo_copy22";
 
-  public String createIndex() throws IOException {
-
-    //ClientConfiguration clientConfiguration =
-     //   ClientConfiguration.builder().connectedTo("localhost:9200").build();
-    //RestHighLevelClient client = RestClients.create(clientConfiguration).rest();
-    //IndexRequest request = new IndexRequest(WALLET_INDEX);
-    //client.index(request, RequestOptions.DEFAULT);
-    return "a";
+  public void createIndex() throws IOException {
+    RestHighLevelClient client = new RestHighLevelClient(RestClient.builder(new HttpHost("localhost", 9200, "http")));
+    CreateIndexRequest request = new CreateIndexRequest(WALLET_INDEX);
+    request.settings(Settings.builder()
+        .put("index.number_of_shards", 3)
+        .put("index.number_of_replicas", 2)
+    );
+    // TODO: see if we really need any of those
+    //Map<String, Object> message = new HashMap<>();
+    //message.put("type", "text");
+    //Map<String, Object> properties = new HashMap<>();
+    //properties.put("userId", message);
+    //properties.put("name", message);Map<String, Object> mapping = new HashMap<>();
+    //mapping.put("properties", properties);
+    //request.mapping(mapping);
+    CreateIndexResponse indexResponse = client.indices().create(request, RequestOptions.DEFAULT);
+    System.out.println("response id: " + indexResponse.index());
 
   }
 
@@ -59,10 +71,10 @@ public class ElasticsearchApplication implements ApplicationRunner {
     System.out.println(dt);
     System.out.println(sdf.parse("2021-10-28T06:44:04.60693Z"));
 
-    //saveWalletInfo();
+    saveWalletInfo();
     //Iterable<WalletInfo> t = transactionsByWalletRepo.findAll();
     //t.forEach(i -> logger.info("----{}", i.getTransactions()));
-   // createIndex();
+    createIndex();
 
   }
 
@@ -104,6 +116,6 @@ public class ElasticsearchApplication implements ApplicationRunner {
     WalletInfo walletInfo = new WalletInfo(
         "770899393414434816|BITGO|TBTC|DEPOSIT",
         List.of(new TransactionForWallet(walletInfo1), new TransactionForWallet(walletInfo2)));
-    transactionsByWalletRepo.save(walletInfo);
+      transactionsByWalletRepo.save(walletInfo);
   }
 }
