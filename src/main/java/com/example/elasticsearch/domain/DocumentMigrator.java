@@ -82,7 +82,10 @@ public class DocumentMigrator implements ApplicationRunner {
     createIndex();
     copyDocumentToNewIndex(doc.get());
     // readFromStaging();
-    addNewFields();
+    String jsonString = "{" +
+        "\"partnerId\":\"123\"" +
+        "}";
+    addNewFields(jsonString);
   }
 
   public void copyDocumentToNewIndex(WalletInfo doc) throws IOException {
@@ -97,7 +100,7 @@ public class DocumentMigrator implements ApplicationRunner {
 
   }
 
-  public void addNewFields() throws IOException {
+  public void addNewFields(String json) throws IOException {
     GetRequest req = new GetRequest(wallet_index,
         "_doc",
         DOC_ID);
@@ -105,17 +108,7 @@ public class DocumentMigrator implements ApplicationRunner {
     logger.info("reading document from {}. Number of fields before update: {}", wallet_index, response.getSource().size());
 
     UpdateRequest r = new UpdateRequest(wallet_index, "_doc", DOC_ID);
-    String jsonString = "{" +
-        "\"partnerId\":\"123\"" +
-        "}";
-
-// if we want to override transactions.....
-    //  String jsonString = "{\"transactions\":" +
-    //      "{" +
-    //      "\"updated\":\"2022-03-24\"," +
-    //      "\"reason\":\"daily update\"" +
-    //      "}}";
-    r.doc(jsonString, XContentType.JSON);
+    r.doc(json, XContentType.JSON);
 
     UpdateResponse updateResponse = client.update(
         r, RequestOptions.DEFAULT);
