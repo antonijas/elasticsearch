@@ -106,7 +106,7 @@ public class DocumentMigrator implements ApplicationRunner {
 
     UpdateRequest r = new UpdateRequest(wallet_index, "_doc", DOC_ID);
     String jsonString = "{" +
-        "\"user\":\"tonkica\"" +
+        "\"partnerId\":\"123\"" +
         "}";
 
 // if we want to override transactions.....
@@ -123,8 +123,6 @@ public class DocumentMigrator implements ApplicationRunner {
 
     logger.info("reading document from {}. Number of fields after update: {}", wallet_index,
         client.get(req, RequestOptions.DEFAULT).getSource().size());
-
-
   }
 
 
