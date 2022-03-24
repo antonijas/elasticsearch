@@ -19,6 +19,8 @@ import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -39,6 +41,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class DocumentMigrator implements ApplicationRunner {
 
+  private final String DOC_ID = "770899393414434816|BITGO|TBTC|DEPOSIT";
+
   @Value("${wallet_index}")
   private String wallet_index;
 
@@ -54,6 +58,9 @@ public class DocumentMigrator implements ApplicationRunner {
   @Value("${portStaging}")
   private int portStaging;
 
+  @Value("indexNameStaging")
+  private String indexNameStaging;
+
   Logger logger = LoggerFactory.getLogger(DocumentMigrator.class);
   private TransactionsByWalletRepo transactionsByWalletRepo;
   private RestHighLevelClient client;
@@ -68,13 +75,14 @@ public class DocumentMigrator implements ApplicationRunner {
   @Override
   public void run(ApplicationArguments args) throws Exception {
     saveWalletInfo();
-    Optional<WalletInfo> doc = transactionsByWalletRepo.findById("770899393414434816|BITGO|TBTC|DEPOSIT");
+    Optional<WalletInfo> doc = transactionsByWalletRepo.findById(DOC_ID);
     if (doc.isPresent()) {
       logger.info("fetched wallet info. transactions {}", doc.get().getTransactions());
     }
     createIndex();
     copyDocumentToNewIndex(doc.get());
-    readFromStaging();
+    // readFromStaging();
+    addNewFields();
   }
 
   public void copyDocumentToNewIndex(WalletInfo doc) throws IOException {
@@ -86,6 +94,36 @@ public class DocumentMigrator implements ApplicationRunner {
     r.source(val, XContentType.JSON);
     IndexResponse resp = client.index(r, RequestOptions.DEFAULT);
     logger.info("doc moved to new index {}", resp);
+
+  }
+
+  public void addNewFields() throws IOException {
+    GetRequest req = new GetRequest(wallet_index,
+        "_doc",
+        DOC_ID);
+    GetResponse response = client.get(req, RequestOptions.DEFAULT);
+    logger.info("reading document from {}. Number of fields before update: {}", wallet_index, response.getSource().size());
+
+    UpdateRequest r = new UpdateRequest(wallet_index, "_doc", DOC_ID);
+    String jsonString = "{" +
+        "\"user\":\"tonkica\"" +
+        "}";
+
+// if we want to override transactions.....
+    //  String jsonString = "{\"transactions\":" +
+    //      "{" +
+    //      "\"updated\":\"2022-03-24\"," +
+    //      "\"reason\":\"daily update\"" +
+    //      "}}";
+    r.doc(jsonString, XContentType.JSON);
+
+    UpdateResponse updateResponse = client.update(
+        r, RequestOptions.DEFAULT);
+    logger.info("added new fields... {}", updateResponse);
+
+    logger.info("reading document from {}. Number of fields after update: {}", wallet_index,
+        client.get(req, RequestOptions.DEFAULT).getSource().size());
+
 
   }
 
@@ -117,9 +155,9 @@ public class DocumentMigrator implements ApplicationRunner {
 
     RestHighLevelClient client = new RestHighLevelClient(b);
 
-    GetRequest req = new GetRequest("com.coinme.projections.transactions_by_wallet",
+    GetRequest req = new GetRequest(indexNameStaging,
         "_doc",
-        "774930573352767488|BITGO|TBTC|DEPOSIT");
+        DOC_ID);
     GetResponse response = client.get(req, RequestOptions.DEFAULT);
     logger.info("reading from staging.... {}", response.getSource());
 
