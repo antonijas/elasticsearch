@@ -209,7 +209,7 @@ public class DocumentMigrator implements ApplicationRunner {
     walletInfo2.put("quoteCurrencyAmount", "29.00");
 
     WalletInfo walletInfo = new WalletInfo(
-        "770899393414434816|BITGO|TBTC|DEPOSIT",
+        DOC_ID,
         List.of(new TransactionForWallet(walletInfo1), new TransactionForWallet(walletInfo2)));
     transactionsByWalletRepo.save(walletInfo);
   }
