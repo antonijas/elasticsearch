@@ -99,15 +99,17 @@ public class DocumentMigrator implements ApplicationRunner {
 
   private void copyDocumentToNewIndex(Iterable<WalletInfo> docs) throws IOException {
     ObjectMapper objectMapper = new ObjectMapper();
-    // TODO: bulk?
+    BulkRequest bulkRequest = new BulkRequest();
     for (WalletInfo doc : docs) {
       String val = objectMapper.writeValueAsString(doc);
       IndexRequest r = new IndexRequest(wallet_index);
       r.type("_doc");
       r.id(doc.getId());
       r.source(val, XContentType.JSON);
-      client.index(r, RequestOptions.DEFAULT);
+      bulkRequest.add(r);
     }
+
+    client.bulk(bulkRequest, RequestOptions.DEFAULT);
     logger.info("docs moved to new index ");
     Iterable<WalletInfoCopy> w = walletInfoCopyRepo.findAllById(List.of(DOC_ID, DOC_ID2));
     for (WalletInfoCopy doc_copy : w) {
