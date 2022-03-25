@@ -63,13 +63,16 @@ public class DocumentMigrator implements ApplicationRunner {
 
   Logger logger = LoggerFactory.getLogger(DocumentMigrator.class);
   private TransactionsByWalletRepo transactionsByWalletRepo;
+  private WalletInfoCopyRepo walletInfoCopyRepo;
   private RestHighLevelClient client;
 
   @Autowired
   public DocumentMigrator(TransactionsByWalletRepo transactionsByWalletRepo,
-      RestHighLevelClient client) {
+      RestHighLevelClient client,
+      WalletInfoCopyRepo walletInfoCopyRepo) {
     this.transactionsByWalletRepo = transactionsByWalletRepo;
     this.client = client;
+    this.walletInfoCopyRepo = walletInfoCopyRepo;
   }
 
   @Override
@@ -88,7 +91,7 @@ public class DocumentMigrator implements ApplicationRunner {
     addNewFields(jsonString);
   }
 
-  public void copyDocumentToNewIndex(WalletInfo doc) throws IOException {
+  private void copyDocumentToNewIndex(WalletInfo doc) throws IOException {
     ObjectMapper objectMapper = new ObjectMapper();
     String val = objectMapper.writeValueAsString(doc);
     IndexRequest r = new IndexRequest(wallet_index);
@@ -97,10 +100,14 @@ public class DocumentMigrator implements ApplicationRunner {
     r.source(val, XContentType.JSON);
     IndexResponse resp = client.index(r, RequestOptions.DEFAULT);
     logger.info("doc moved to new index {}", resp);
+    Optional<WalletInfoCopy> w = walletInfoCopyRepo.findById(DOC_ID);
+    if (w.isPresent()){
+      logger.info("reading from new index with spring data repo... {}", w.get());
+    }
 
   }
 
-  public void addNewFields(String json) throws IOException {
+  private void addNewFields(String json) throws IOException {
     GetRequest req = new GetRequest(wallet_index,
         "_doc",
         DOC_ID);
@@ -119,7 +126,7 @@ public class DocumentMigrator implements ApplicationRunner {
   }
 
 
-  public void createIndex() throws IOException {
+  private void createIndex() throws IOException {
     CreateIndexRequest request = new CreateIndexRequest(wallet_index);
     request.settings(Settings.builder()
         .put("index.number_of_shards", 3)

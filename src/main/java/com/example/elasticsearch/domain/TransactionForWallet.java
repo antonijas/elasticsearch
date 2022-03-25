@@ -1,5 +1,6 @@
 package com.example.elasticsearch.domain;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -15,9 +16,12 @@ public class TransactionForWallet {
   private String toAddress;
   private String internalId;
   private String redeemCode;
+  @JsonFormat (shape = JsonFormat.Shape.STRING, pattern ="yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ")
   private Date at;
+  @JsonFormat (shape = JsonFormat.Shape.STRING, pattern ="yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ")
   private Date redemptionTimestamp;
   private Long phoneNumber;
+  @JsonFormat (shape = JsonFormat.Shape.STRING, pattern ="yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ")
   private Date creationTimestamp;
   private String fromAddress;
   private String id;
